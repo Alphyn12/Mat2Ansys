@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+.next/
+out/
+build/
+dist/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+autovenv/
+.venv/
+venv/
+ENV/
+env/
+.env
+
+# Generated Files
+*.xml
+*.log
+
+# IDEs & System
+.vscode/
+.idea/
+.DS_Store
+*.swp
+Thumbs.db
+
+# Gemini / Internal
+.gemini/
+.agents/
+brain/
