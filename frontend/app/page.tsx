@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Image from "next/image";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8000";
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "";
 
 type AppStatus = "idle" | "generating" | "download_ready" | "error";
 
