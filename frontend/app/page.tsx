@@ -18,8 +18,14 @@ export default function Home() {
     try {
       const payload = await res.json();
       const detail = payload?.detail;
+
+      // Handle FastAPI's detail formats
       if (typeof detail === "string") return detail;
-      if (detail && typeof detail.message === "string") return detail.message;
+      if (typeof detail === "object" && detail !== null) {
+        if (typeof detail.message === "string") return detail.message;
+        if (typeof detail[0]?.msg === "string") return `Validation Error: ${detail[0].msg}`;
+        return JSON.stringify(detail);
+      }
       return fallback;
     } catch {
       return fallback;

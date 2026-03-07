@@ -282,54 +282,109 @@ def parse_raw_matweb_text(raw_text: str) -> dict:
     """
     Parses raw MatWeb "Printer Friendly Version" text to extract properties
     and converts them to SI units, applying steel defaults for missing values.
+    Handles multiple aliases for the same properties.
     """
     import re
     
-    density_m = re.search(r"Density\s+([0-9.]+)\s*(?:g/cc|g/cm³|kg/m³)", raw_text, re.IGNORECASE)
-    yield_m = re.search(r"Tensile Strength, Yield\s+([0-9.]+)\s*MPa", raw_text, re.IGNORECASE)
-    ult_m = re.search(r"Tensile Strength, Ultimate\s+([0-9.]+)\s*MPa", raw_text, re.IGNORECASE)
-    mod_m = re.search(r"Modulus of Elasticity\s+([0-9.]+)\s*GPa", raw_text, re.IGNORECASE)
-    poisson_m = re.search(r"Poisson's Ratio\s+([0-9.]+)", raw_text, re.IGNORECASE)
+    # 1) Search with multiple aliases
+    # Density: Supports g/cc, g/cm3, kg/m3
+    density_m = re.search(r"Density\s+([0-9.,]+)\s*(?:g/cc|g/cm³|g/cm3|kg/m³|kg/m3)", raw_text, re.IGNORECASE)
+    
+    # Yield Strength: Supports 'Tensile Strength, Yield'
+    yield_m = re.search(r"Tensile Strength, Yield\s+([0-9.,]+)\s*MPa", raw_text, re.IGNORECASE)
+    
+    # Ultimate Strength: Supports 'Tensile Strength, Ultimate'
+    ult_m = re.search(r"Tensile Strength, Ultimate\s+([0-9.,]+)\s*MPa", raw_text, re.IGNORECASE)
+    
+    # Modulus: Supports 'Modulus of Elasticity' and 'Tensile Modulus'
+    mod_m = re.search(r"(?:Modulus of Elasticity|Tensile Modulus)\s+([0-9.,]+)\s*GPa", raw_text, re.IGNORECASE)
+    
+    # Poisson: Supports 'Poisson's Ratio'
+    poisson_m = re.search(r"Poisson's Ratio\s+([0-9.,]+)", raw_text, re.IGNORECASE)
 
     props = {}
     used_defaults = []
     missing_or_unparsed = []
 
+    def clean_val(val_str: str) -> float:
+        # Handle decimal comma if present (MatWeb usually uses dot, but let's be safe)
+        if "," in val_str and "." in val_str:
+            # Format like 1,234.56 or 1.234,56
+            if val_str.rfind(",") > val_str.rfind("."):
+                # 1.234,56
+                return float(val_str.replace(".", "").replace(",", "."))
+            else:
+                # 1,234.56
+                return float(val_str.replace(",", ""))
+        elif "," in val_str:
+            # Could be 1,23 (decimal) or 1,234 (thousands)
+            # MatWeb properties are usually small numbers for g/cc or Poisson, or large for MPa
+            # If it's something like "0,3" it's decimal. If it's "1200,0" it's decimal.
+            # Usually MatWeb uses dots. We'll try to treat comma as decimal if it's the only separator.
+            return float(val_str.replace(",", "."))
+        return float(val_str)
+
+    # DENSITY
     if density_m:
-        match_str = density_m.group(0).lower()
-        val = float(density_m.group(1))
-        if "kg/m³" in match_str or "kg/m3" in match_str:
-            props['density'] = round(val, 2)
-        else:
-            props['density'] = round(val * 1000.0, 2)
+        try:
+            match_str = density_m.group(0).lower()
+            val = clean_val(density_m.group(1))
+            if "kg/m" in match_str: # catches kg/m³ and kg/m3
+                props['density'] = round(val, 2)
+            else:
+                # g/cc to kg/m3
+                props['density'] = round(val * 1000.0, 2)
+        except (ValueError, TypeError):
+            props['density'] = round(STEEL_DEFAULTS['density'], 2)
+            used_defaults.append('density')
     else:
         props['density'] = round(STEEL_DEFAULTS['density'], 2)
         used_defaults.append('density')
         missing_or_unparsed.append('density')
 
+    # YIELD
     if yield_m:
-        props['tensile_yield'] = round(float(yield_m.group(1)) * 1e6, 2)
+        try:
+            props['tensile_yield'] = round(clean_val(yield_m.group(1)) * 1e6, 2)
+        except (ValueError, TypeError):
+            props['tensile_yield'] = round(STEEL_DEFAULTS['tensile_yield'], 2)
+            used_defaults.append('tensile_yield')
     else:
         props['tensile_yield'] = round(STEEL_DEFAULTS['tensile_yield'], 2)
         used_defaults.append('tensile_yield')
         missing_or_unparsed.append('tensile_yield')
         
+    # ULTIMATE
     if ult_m:
-        props['tensile_ultimate'] = round(float(ult_m.group(1)) * 1e6, 2)
+        try:
+            props['tensile_ultimate'] = round(clean_val(ult_m.group(1)) * 1e6, 2)
+        except (ValueError, TypeError):
+            props['tensile_ultimate'] = round(STEEL_DEFAULTS['tensile_ultimate'], 2)
+            used_defaults.append('tensile_ultimate')
     else:
         props['tensile_ultimate'] = round(STEEL_DEFAULTS['tensile_ultimate'], 2)
         used_defaults.append('tensile_ultimate')
         missing_or_unparsed.append('tensile_ultimate')
         
+    # MODULUS
     if mod_m:
-        props['youngs_modulus'] = round(float(mod_m.group(1)) * 1e9, 2)
+        try:
+            props['youngs_modulus'] = round(clean_val(mod_m.group(1)) * 1e9, 2)
+        except (ValueError, TypeError):
+            props['youngs_modulus'] = round(STEEL_DEFAULTS['youngs_modulus'], 2)
+            used_defaults.append('youngs_modulus')
     else:
         props['youngs_modulus'] = round(STEEL_DEFAULTS['youngs_modulus'], 2)
         used_defaults.append('youngs_modulus')
         missing_or_unparsed.append('youngs_modulus')
         
+    # POISSON
     if poisson_m:
-        props['poissons_ratio'] = round(float(poisson_m.group(1)), 2)
+        try:
+            props['poissons_ratio'] = round(clean_val(poisson_m.group(1)), 2)
+        except (ValueError, TypeError):
+            props['poissons_ratio'] = round(STEEL_DEFAULTS['poissons_ratio'], 2)
+            used_defaults.append('poissons_ratio')
     else:
         props['poissons_ratio'] = round(STEEL_DEFAULTS['poissons_ratio'], 2)
         used_defaults.append('poissons_ratio')

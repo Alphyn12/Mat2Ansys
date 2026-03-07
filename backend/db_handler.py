@@ -13,10 +13,21 @@ from typing import Callable, Optional
 # ---------------------------------------------------------------------------
 # Config
 # ---------------------------------------------------------------------------
-CACHE_FILE = os.path.join(os.path.dirname(__file__), "bizim_malzemeler.json")
+# Vercel compatibility: Vercel filesystem is read-only except for /tmp
+if os.getenv("VERCEL") == "1":
+    CACHE_FILE = os.path.join("/tmp", "bizim_malzemeler.json")
+else:
+    CACHE_FILE = os.path.join(os.path.dirname(__file__), "bizim_malzemeler.json")
+
 LOCK_FILE = f"{CACHE_FILE}.lock"
 LOCK_TIMEOUT_SEC = 10.0
 LOCK_RETRY_SEC = 0.05
+
+def _is_readonly_env() -> bool:
+    # Additional check for environments where we might not even be able to write to /tmp
+    # or if we want to skip caching entirely.
+    return os.getenv("DISABLE_CACHE", "0") == "1"
+
 try:
     SEARCH_CACHE_TTL_SEC = max(0, int(os.getenv("SEARCH_CACHE_TTL_SEC", "86400")))
 except ValueError:
@@ -146,10 +157,17 @@ def _read_cache() -> dict:
 
 
 def _mutate_cache(mutator: Callable[[dict], None]):
-    with _file_lock():
-        data = _load_cache_unlocked()
-        mutator(data)
-        _atomic_save_unlocked(data)
+    if _is_readonly_env():
+        return
+    try:
+        with _file_lock():
+            data = _load_cache_unlocked()
+            mutator(data)
+            _atomic_save_unlocked(data)
+    except Exception as e:
+        # Log to stderr but don't crash the core logic
+        import sys
+        print(f"ERROR: Cache update failed: {e}", file=sys.stderr)
 
 
 # ---------------------------------------------------------------------------

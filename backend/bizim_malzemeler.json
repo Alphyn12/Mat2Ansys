@@ -15,11 +15,29 @@
         "poissons_ratio"
       ],
       "scraped_at": "2026-03-06T19:11:51.178422+00:00"
+    },
+    "smart_paste_test": {
+      "url": "smart_paste_test",
+      "name": "3M Nextel™ 312 Industrial Ceramic Fiber",
+      "density": 2700.0,
+      "tensile_yield": 250000000.0,
+      "tensile_ultimate": 1700000000.0,
+      "youngs_modulus": 150000000000.0,
+      "poissons_ratio": 0.3,
+      "used_defaults": [
+        "tensile_yield",
+        "poissons_ratio"
+      ],
+      "missing_or_unparsed": [],
+      "scraped_at": "2026-03-06T23:54:53.836034+00:00"
     }
   },
   "name_to_urls": {
     "AISI 8620 Steel": [
       "smart_paste"
+    ],
+    "3M Nextel™ 312 Industrial Ceramic Fiber": [
+      "smart_paste_test"
     ]
   },
   "search_cache": {}
