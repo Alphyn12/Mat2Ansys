@@ -276,7 +276,6 @@ if __name__ == "__main__":
     print(f"  Comma '7,850 kg/m³'  → {clean_value('7,850 kg/m³', 'density')}")
     print(f"  SciNot '2.00e+11 Pa' → {clean_value('2.00e+11 Pa', 'youngs_modulus')}")
     print(f"  Empty string ''      → {clean_value('', 'density')}")
-print(f"  None/invalid         → {clean_value('', 'density')}")
 
 def parse_raw_matweb_text(raw_text: str) -> dict:
     """
@@ -290,17 +289,17 @@ def parse_raw_matweb_text(raw_text: str) -> dict:
     # Density: Supports g/cc, g/cm3, kg/m3
     density_m = re.search(r"Density\s+([0-9.,]+)\s*(?:g/cc|g/cm³|g/cm3|kg/m³|kg/m3)", raw_text, re.IGNORECASE)
     
-    # Yield Strength: Supports 'Tensile Strength, Yield'
-    yield_m = re.search(r"Tensile Strength, Yield\s+([0-9.,]+)\s*MPa", raw_text, re.IGNORECASE)
-    
-    # Ultimate Strength: Supports 'Tensile Strength, Ultimate'
-    ult_m = re.search(r"Tensile Strength, Ultimate\s+([0-9.,]+)\s*MPa", raw_text, re.IGNORECASE)
+    # Yield Strength: Supports MPa, GPa, ksi, psi
+    yield_m = re.search(r"Tensile Strength, Yield\s+([0-9.,]+)\s*(MPa|GPa|ksi|psi)", raw_text, re.IGNORECASE)
+
+    # Ultimate Strength: Supports MPa, GPa, ksi, psi
+    ult_m = re.search(r"Tensile Strength, Ultimate\s+([0-9.,]+)\s*(MPa|GPa|ksi|psi)", raw_text, re.IGNORECASE)
     
     # Modulus: Supports 'Modulus of Elasticity' and 'Tensile Modulus'
     mod_m = re.search(r"(?:Modulus of Elasticity|Tensile Modulus)\s+([0-9.,]+)\s*GPa", raw_text, re.IGNORECASE)
     
-    # Poisson: Supports 'Poisson's Ratio'
-    poisson_m = re.search(r"Poisson's Ratio\s+([0-9.,]+)", raw_text, re.IGNORECASE)
+    # Poisson: Supports 'Poisson's Ratio', including range values like "0.27 - 0.30"
+    poisson_m = re.search(r"Poisson's Ratio\s+([\d.,]+(?:\s*[-\u2013\u2014]\s*[\d.,]+)?)", raw_text, re.IGNORECASE)
 
     props = {}
     used_defaults = []
@@ -317,11 +316,14 @@ def parse_raw_matweb_text(raw_text: str) -> dict:
                 # 1,234.56
                 return float(val_str.replace(",", ""))
         elif "," in val_str:
-            # Could be 1,23 (decimal) or 1,234 (thousands)
-            # MatWeb properties are usually small numbers for g/cc or Poisson, or large for MPa
-            # If it's something like "0,3" it's decimal. If it's "1200,0" it's decimal.
-            # Usually MatWeb uses dots. We'll try to treat comma as decimal if it's the only separator.
-            return float(val_str.replace(",", "."))
+            # Distinguish American thousands separator ("55,800") from European decimal comma ("0,3").
+            # Heuristic: if the substring after the LAST comma is exactly 3 digits, it is a
+            # thousands separator (strip it). Otherwise treat the comma as a decimal point.
+            after_last_comma = val_str.rsplit(",", 1)[1]
+            if len(after_last_comma) == 3 and after_last_comma.isdigit():
+                return float(val_str.replace(",", ""))   # "55,800" → 55800.0, "1,234,567" → 1234567.0
+            else:
+                return float(val_str.replace(",", "."))  # "0,3" → 0.3, "1,23" → 1.23
         return float(val_str)
 
     # DENSITY
@@ -345,7 +347,9 @@ def parse_raw_matweb_text(raw_text: str) -> dict:
     # YIELD
     if yield_m:
         try:
-            props['tensile_yield'] = round(clean_val(yield_m.group(1)) * 1e6, 2)
+            unit_str = yield_m.group(2).lower()
+            factor = STRESS_CONVERSIONS.get(unit_str, STRESS_CONVERSIONS["mpa"])
+            props['tensile_yield'] = round(clean_val(yield_m.group(1)) * factor, 2)
         except (ValueError, TypeError):
             props['tensile_yield'] = round(STEEL_DEFAULTS['tensile_yield'], 2)
             used_defaults.append('tensile_yield')
@@ -353,11 +357,13 @@ def parse_raw_matweb_text(raw_text: str) -> dict:
         props['tensile_yield'] = round(STEEL_DEFAULTS['tensile_yield'], 2)
         used_defaults.append('tensile_yield')
         missing_or_unparsed.append('tensile_yield')
-        
+
     # ULTIMATE
     if ult_m:
         try:
-            props['tensile_ultimate'] = round(clean_val(ult_m.group(1)) * 1e6, 2)
+            unit_str = ult_m.group(2).lower()
+            factor = STRESS_CONVERSIONS.get(unit_str, STRESS_CONVERSIONS["mpa"])
+            props['tensile_ultimate'] = round(clean_val(ult_m.group(1)) * factor, 2)
         except (ValueError, TypeError):
             props['tensile_ultimate'] = round(STEEL_DEFAULTS['tensile_ultimate'], 2)
             used_defaults.append('tensile_ultimate')
@@ -381,7 +387,11 @@ def parse_raw_matweb_text(raw_text: str) -> dict:
     # POISSON
     if poisson_m:
         try:
-            props['poissons_ratio'] = round(clean_val(poisson_m.group(1)), 2)
+            # Use extract_number() to correctly average range values (e.g. "0.27 - 0.30" → 0.285)
+            parsed = extract_number(poisson_m.group(1))
+            if parsed is None:
+                raise ValueError("unparseable Poisson value")
+            props['poissons_ratio'] = round(parsed, 2)
         except (ValueError, TypeError):
             props['poissons_ratio'] = round(STEEL_DEFAULTS['poissons_ratio'], 2)
             used_defaults.append('poissons_ratio')

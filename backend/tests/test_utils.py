@@ -19,3 +19,20 @@ def test_format_material_data_reports_defaults():
     assert detailed["properties"]["density"] == 7850.0
     assert "youngs_modulus" in detailed["used_defaults"]
     assert "poissons_ratio" in detailed["missing_or_unparsed"]
+
+
+def test_parse_raw_matweb_text_american_thousands_comma():
+    """55,800 psi must be read as 55800 psi, not 55.8 psi."""
+    from utils import parse_raw_matweb_text
+    raw = (
+        "Tensile Strength, Yield  55,800 psi\n"
+        "Tensile Strength, Ultimate  75,000 psi\n"
+        "Modulus of Elasticity  200 GPa\n"
+        "Density  7.85 g/cc\n"
+        "Poisson's Ratio  0.29\n"
+    )
+    result = parse_raw_matweb_text(raw)
+    props = result["properties"]
+    expected_yield = round(55800 * 6894.757, 2)
+    assert props["tensile_yield"] == expected_yield
+    assert "tensile_yield" not in result["used_defaults"]

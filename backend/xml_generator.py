@@ -136,7 +136,7 @@ def generate_ansys_xml(material_name: str, properties: dict) -> str:
 
     # 2) Update material name
     for name_el in root.iter("Name"):
-        if name_el.text == "Structural Steel":
+        if name_el.text and name_el.text.strip() == "Structural Steel":
             name_el.text = material_name
             break  # Only replace the first occurrence (material name, not class name)
 
