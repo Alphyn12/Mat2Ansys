@@ -1,76 +1,141 @@
+<div align="center">
+
+<img src="frontend/public/logo.jpg" alt="Mat2Ansys Logo" width="120" height="120" style="border-radius: 16px;" />
+
 # Mat2Ansys
 
-**MatWeb → ANSYS Engineering Data XML bridge.**
-Paste raw MatWeb material data, download a ready-to-import `.xml` file in seconds — no manual data entry, no sign-in.
+### MatWeb → ANSYS Engineering Data Köprüsü
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/Alphyn12/Mat2Ansys)
-![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)
-![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)
-![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)
+*MatWeb'den kopyala, ANSYS'e yapıştır. Saniyeler içinde.*
+
+<br/>
+
+[![Vercel ile Deploy Et](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/Alphyn12/Mat2Ansys)
+&nbsp;
+![Lisans](https://img.shields.io/badge/Lisans-MIT-22c55e?style=flat-square)
+![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=flat-square&logo=python&logoColor=white)
+![Next.js](https://img.shields.io/badge/Next.js-16-black?style=flat-square&logo=next.js)
+![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white)
+![Vercel](https://img.shields.io/badge/Vercel-Deployed-black?style=flat-square&logo=vercel)
+
+</div>
 
 ---
 
-## How It Works
+## Nedir?
+
+**Mat2Ansys**, malzeme mühendislerinin günlük hayatındaki en can sıkıcı işi ortadan kaldırır:
+MatWeb'den ANSYS'e manuel veri girişi.
+
+Bir malzeme sayfasındaki tüm metni kopyalayıp yapıştırmanız yeterli. Sistem otomatik olarak özellikleri çıkarır, birimleri SI'ya dönüştürür ve ANSYS Engineering Data'ya doğrudan import edilebilecek bir **MatML 3.1 XML** dosyası üretir.
+
+> Hesap açma yok. API anahtarı yok. Sadece yapıştır ve indir.
+
+---
+
+## Nasıl Çalışır?
 
 ```
-1. Go to matweb.com → find your material → open "Printer Friendly Version"
-2. Select All (Ctrl+A) and copy the entire page text
-3. Paste into Mat2Ansys → enter a material name → click "Generate XML"
-4. Download the .xml file → import into ANSYS Engineering Data
+┌─────────────────────────────────────────────────────────────┐
+│                                                             │
+│   1. matweb.com → Malzemeyi bul → "Printer Friendly"       │
+│                        ↓                                   │
+│   2. Tüm sayfayı Ctrl+A ile kopyala                        │
+│                        ↓                                   │
+│   3. Mat2Ansys'e yapıştır → Malzeme adını gir → Üret       │
+│                        ↓                                   │
+│   4. .xml dosyasını indir → ANSYS Engineering Data'ya aktar│
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-The backend uses regex-based extraction to pull out the relevant properties, converts every unit to SI (Pa, kg/m³), derives Bulk and Shear Modulus from Young's Modulus and Poisson's Ratio, then injects the values into a valid **MatML 3.1** XML template.
+Arka planda neler oluyor:
+
+- **Regex tabanlı ayıklama** — yapılandırılmamış MatWeb metninden özellikler çıkarılır
+- **Otomatik birim dönüşümü** — MPa, GPa, ksi, psi, g/cc → SI birimleri
+- **Türetilmiş özellikler** — Bulk ve Shear Modülü, E ve ν'dan hesaplanır
+- **Çelik fallback değerleri** — eksik veriler endüstri standardı değerlerle tamamlanır
+- **Şeffaf uyarı** — hangi değerlerin varsayılan kullanıldığı kullanıcıya gösterilir
 
 ---
 
-## Features
+## Öne Çıkan Özellikler
 
-- **Smart Paste** — no structured input required; paste the entire page and the backend finds what it needs
-- **Multi-unit support** — MPa, GPa, ksi, psi, g/cc, kg/m³, lb/in³, range values (e.g. `0.27 - 0.30` → averaged)
-- **Derived properties** — Bulk Modulus and Shear Modulus are automatically calculated from E and ν
-- **Steel fallback defaults** — if a property is missing or unparseable, industry-standard steel values are used (E = 200 GPa, ν = 0.3, ρ = 7850 kg/m³)
-- **Transparency** — a warning banner lists every property that fell back to a default, so you know exactly what to verify
-- **Serverless-ready** — designed for Vercel's read-only filesystem, with atomic writes and stale-lock cleanup
-- **Zero friction** — no database, no accounts, no API keys
-
----
-
-## Tech Stack
-
-| Layer | Technology |
+| Özellik | Detay |
 |---|---|
-| Frontend | Next.js 16 (App Router) · TypeScript 5 · Tailwind CSS 4 |
-| Backend | FastAPI · Python 3.10+ · Pydantic |
-| XML | Python `xml.etree.ElementTree` · MatML 3.1 template |
-| Deployment | Vercel (`@vercel/python` + `@vercel/next`) |
+| **Smart Paste** | Yapılandırılmış giriş gerekmez; tüm sayfayı yapıştır |
+| **Çoklu Birim Desteği** | MPa, GPa, ksi, psi, g/cc, kg/m³, lb/in³ |
+| **Aralık Değerleri** | `0.27 - 0.30` gibi değerler ortalaması alınarak işlenir |
+| **Türetilmiş Modüller** | Bulk `K = E / 3(1−2ν)` · Shear `G = E / 2(1+ν)` |
+| **Çelik Standart Değerleri** | E = 200 GPa · ν = 0.3 · ρ = 7850 kg/m³ |
+| **Şeffaf Uyarılar** | Hangi değerlerin varsayılan kullanıldığı listelenir |
+| **Sunucusuz Mimari** | Vercel uyumlu — hesap, veritabanı, API anahtarı gerektirmez |
 
 ---
 
-## Getting Started
+## Desteklenen Malzeme Özellikleri
 
-### Prerequisites
+| MatWeb Özelliği | ANSYS Parametresi | Birim |
+|---|---|---|
+| Density | Yoğunluk | kg/m³ |
+| Tensile Strength, Yield | Çekme Akma Dayanımı | Pa |
+| Tensile Strength, Ultimate | Nihai Çekme Dayanımı | Pa |
+| Modulus of Elasticity / Tensile Modulus | Young Modülü | Pa |
+| Poisson's Ratio / Poissons Ratio | Poisson Oranı | — |
+| *(türetilmiş)* | Bulk Modülü | Pa |
+| *(türetilmiş)* | Kayma Modülü | Pa |
 
-- **Python 3.10+**
-- **Node.js 20+**
+---
 
-### 1. Clone
+## Teknoloji Yığını
+
+```
+┌──────────────┬────────────────────────────────────────────┐
+│   Katman     │   Teknoloji                                │
+├──────────────┼────────────────────────────────────────────┤
+│  Frontend    │  Next.js 16 · TypeScript 5 · Tailwind 4   │
+│  Backend     │  FastAPI · Python 3.10+ · Pydantic         │
+│  XML         │  xml.etree.ElementTree · MatML 3.1         │
+│  Deploy      │  Vercel (@vercel/python + @vercel/next)    │
+└──────────────┴────────────────────────────────────────────┘
+```
+
+---
+
+## Kurulum & Yerel Geliştirme
+
+### Gereksinimler
+
+- Python 3.10+
+- Node.js 20+
+
+### 1 · Repoyu Klonla
 
 ```bash
 git clone https://github.com/Alphyn12/Mat2Ansys.git
 cd Mat2Ansys
 ```
 
-### 2. Backend
+### 2 · Backend'i Başlat
 
 ```bash
 cd backend
+
+# Sanal ortam oluştur
 python -m venv .venv
-source .venv/bin/activate      # Windows: .venv\Scripts\activate
+
+# Aktive et
+source .venv/bin/activate        # macOS / Linux
+# .venv\Scripts\activate         # Windows
+
+# Bağımlılıkları yükle
 pip install -r requirements.txt
+
+# Sunucuyu başlat
 uvicorn main:app --reload --port 8000
 ```
 
-### 3. Frontend
+### 3 · Frontend'i Başlat
 
 ```bash
 cd frontend
@@ -78,124 +143,105 @@ npm install
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+Tarayıcıda aç → [http://localhost:3000](http://localhost:3000)
 
 ---
 
-## Environment Variables
+## Ortam Değişkenleri
 
-### Backend (`backend/.env`)
+### Backend — `backend/.env`
 
-| Variable | Default | Description |
+| Değişken | Varsayılan | Açıklama |
 |---|---|---|
-| `ALLOWED_ORIGINS` | `http://localhost:3000,http://127.0.0.1:3000` | CORS allowed origins |
-| `SEARCH_CACHE_TTL_SEC` | `86400` | Material cache TTL in seconds |
-| `DISABLE_CACHE` | `0` | Set to `1` to skip disk caching entirely |
+| `ALLOWED_ORIGINS` | `http://localhost:3000` | İzin verilen CORS kaynakları |
+| `SEARCH_CACHE_TTL_SEC` | `86400` | Önbellek geçerlilik süresi (saniye) |
+| `DISABLE_CACHE` | `0` | `1` yapılırsa önbellekleme devre dışı |
 
-### Frontend (`frontend/.env.local`)
+### Frontend — `frontend/.env.local`
 
-| Variable | Default | Description |
+| Değişken | Varsayılan | Açıklama |
 |---|---|---|
-| `NEXT_PUBLIC_API_BASE` | auto-detected | Backend base URL (omit in Vercel production) |
+| `NEXT_PUBLIC_API_BASE` | otomatik tespit | Backend URL (Vercel'de gerekli değil) |
 
 ---
 
-## API Reference
+## API Referansı
 
 ### `POST /api/parse-and-generate`
 
-Parses raw MatWeb text and returns an ANSYS-compatible XML file.
+Ham MatWeb metnini ayrıştırır ve ANSYS uyumlu XML döndürür.
 
-**Request body:**
+**İstek:**
 
 ```json
 {
   "name": "AISI 4140 Steel",
-  "raw_text": "<full MatWeb Printer Friendly page text>"
+  "raw_text": "<MatWeb Printer Friendly sayfasının tam metni>"
 }
 ```
 
-**Response:** `application/xml` file download
+**Yanıt:** `application/xml` dosya indirme
 
-**Response headers:**
+**Özel Yanıt Başlıkları:**
 
-| Header | Type | Description |
+| Başlık | Tür | Açıklama |
 |---|---|---|
-| `X-Mat2Ansys-Used-Defaults` | `string` (CSV) | Properties that fell back to steel defaults |
-| `X-Mat2Ansys-Defaults-Count` | `string` (int) | Number of defaulted properties |
-| `X-Mat2Ansys-Missing-Or-Unparsed` | `string` (CSV) | Properties not found in the source text |
+| `X-Mat2Ansys-Used-Defaults` | string (CSV) | Varsayılan kullanılan özellikler |
+| `X-Mat2Ansys-Defaults-Count` | string (int) | Varsayılan kullanılan özellik sayısı |
+| `X-Mat2Ansys-Missing-Or-Unparsed` | string (CSV) | Metinde bulunamayan özellikler |
 
 ### `GET /api/health`
 
-Returns `{"status": "ok", "version": "2.0.0"}`.
+```json
+{ "status": "ok", "version": "2.0.0" }
+```
 
 ---
 
-## Supported Properties
-
-| MatWeb Property | ANSYS Parameter | Unit (SI) |
-|---|---|---|
-| Density | Density | kg/m³ |
-| Tensile Strength, Yield | Yield Strength | Pa |
-| Tensile Strength, Ultimate | Ultimate Tensile Strength | Pa |
-| Modulus of Elasticity / Tensile Modulus | Young's Modulus | Pa |
-| Poisson's Ratio / Poissons Ratio | Poisson's Ratio | — |
-| *(derived)* | Bulk Modulus `K = E / 3(1−2ν)` | Pa |
-| *(derived)* | Shear Modulus `G = E / 2(1+ν)` | Pa |
-
----
-
-## Project Structure
+## Proje Yapısı
 
 ```
 Mat2Ansys/
+│
 ├── backend/
-│   ├── main.py              # FastAPI app — endpoints, CORS
-│   ├── utils.py             # Regex extraction & unit conversion
-│   ├── xml_generator.py     # MatML 3.1 XML template injection
-│   ├── db_handler.py        # JSON cache with atomic writes & file locking
-│   ├── security.py          # Request validation
-│   ├── template.xml         # ANSYS Structural Steel baseline (MatML 3.1)
+│   ├── main.py              ← FastAPI uygulaması (endpoint'ler, CORS)
+│   ├── utils.py             ← Regex ayıklama & birim dönüşümü
+│   ├── xml_generator.py     ← MatML 3.1 XML üreteci (şablon gömülü)
+│   ├── db_handler.py        ← JSON önbellek (atomik yazma, kilit yönetimi)
+│   ├── security.py          ← İstek doğrulama
 │   ├── requirements.txt
-│   └── tests/               # pytest unit tests
-│       ├── test_api.py
-│       ├── test_utils.py
-│       ├── test_xml_generator.py
-│       ├── test_db_handler.py
-│       └── test_security.py
+│   └── tests/               ← pytest birim testleri
+│
 ├── frontend/
 │   ├── app/
-│   │   ├── layout.tsx       # Root layout — fonts, metadata
-│   │   ├── page.tsx         # Main SPA — form, state, API call, download
-│   │   └── globals.css      # Design tokens + component styles
-│   ├── public/              # Static assets (logo, guide screenshots)
-│   ├── package.json
-│   └── README.md            # Frontend-specific docs
-├── vercel.json              # Vercel monorepo config
-└── README.md                # This file
+│   │   ├── layout.tsx       ← Kök düzen (fontlar, meta)
+│   │   ├── page.tsx         ← Ana SPA (form, API çağrısı, indirme)
+│   │   └── globals.css      ← Tasarım token'ları & bileşen stilleri
+│   └── public/              ← Statik varlıklar (logo, rehber görselleri)
+│
+├── vercel.json              ← Vercel monorepo yapılandırması
+└── README.md
 ```
 
 ---
 
-## Deployment (Vercel)
+## Vercel'e Deploy
 
-The repository is a monorepo. `vercel.json` at the root handles everything:
+Repo bir monorepo olarak yapılandırılmıştır. Kök dizindeki `vercel.json` her şeyi yönetir:
 
-- `/api/*` → Python backend (FastAPI via `@vercel/python`)
+- `/api/*` → Python backend (FastAPI)
 - `/*` → Next.js frontend
 
-**Steps:**
+**Adımlar:**
 
-1. Fork or clone the repo
-2. Import it into [Vercel](https://vercel.com)
-3. Set `ALLOWED_ORIGINS` to your Vercel domain (or leave empty to accept same-origin requests only)
-4. Deploy — no extra configuration needed
-
-> **Vercel free plan note:** Functions time out after 10 seconds. The cache layer automatically uses a 2-second lock timeout on Vercel so a stale lock file can never exhaust the function's time budget.
+1. Repoyu fork'la veya klonla
+2. [Vercel](https://vercel.com)'e import et
+3. `ALLOWED_ORIGINS` değişkenini Vercel domain'inle güncelle
+4. Deploy et — başka yapılandırma gerekmez
 
 ---
 
-## Running Tests
+## Testleri Çalıştır
 
 ```bash
 cd backend
@@ -204,15 +250,31 @@ pytest
 
 ---
 
-## Contributing
+## Katkıda Bulun
 
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feat/your-feature`
-3. Commit your changes with a clear message
-4. Open a pull request against `master`
+```bash
+# 1. Fork'la
+# 2. Feature branch oluştur
+git checkout -b feat/yeni-ozellik
+
+# 3. Değişikliklerini commit'le
+git commit -m "feat: yeni özellik açıklaması"
+
+# 4. Pull request aç → master branch'e
+```
 
 ---
 
-## License
+## Lisans
 
-[MIT](LICENSE)
+[MIT](LICENSE) — Özgürce kullan, dağıt, değiştir.
+
+---
+
+<div align="center">
+
+*Mühendisler için, mühendisler tarafından.*
+
+**[mat2ansys.vercel.app](https://mat2ansys.vercel.app)**
+
+</div>
