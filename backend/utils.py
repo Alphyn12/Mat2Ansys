@@ -298,8 +298,9 @@ def parse_raw_matweb_text(raw_text: str) -> dict:
     # Modulus: Supports 'Modulus of Elasticity' and 'Tensile Modulus'
     mod_m = re.search(r"(?:Modulus of Elasticity|Tensile Modulus)\s+([0-9.,]+)\s*GPa", raw_text, re.IGNORECASE)
     
-    # Poisson: Supports 'Poisson's Ratio', including range values like "0.27 - 0.30"
-    poisson_m = re.search(r"Poisson's Ratio\s+([\d.,]+(?:\s*[-\u2013\u2014]\s*[\d.,]+)?)", raw_text, re.IGNORECASE)
+    # Poisson: Supports both "Poisson's Ratio" (with apostrophe) and "Poissons Ratio" (without),
+    # including smart-quote variants and range values like "0.27 - 0.30"
+    poisson_m = re.search(r"Poisson['\u2019]?s\s+Ratio\s+([\d.,]+(?:\s*[-\u2013\u2014]\s*[\d.,]+)?)", raw_text, re.IGNORECASE)
 
     props = {}
     used_defaults = []

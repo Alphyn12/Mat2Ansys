@@ -20,8 +20,11 @@ else:
     CACHE_FILE = os.path.join(os.path.dirname(__file__), "bizim_malzemeler.json")
 
 LOCK_FILE = f"{CACHE_FILE}.lock"
-LOCK_TIMEOUT_SEC = 10.0
+# On Vercel, SIGKILL can leave a stale lock across warm-start reuses of the same container.
+# Keep the timeout short so a stuck lock doesn't eat the entire function budget (10 s on hobby plan).
+LOCK_TIMEOUT_SEC = 2.0 if os.getenv("VERCEL") == "1" else 10.0
 LOCK_RETRY_SEC = 0.05
+_STALE_LOCK_AGE_SEC = 15.0  # A lock older than this is certainly from a dead process
 
 def _is_readonly_env() -> bool:
     # Additional check for environments where we might not even be able to write to /tmp
@@ -57,6 +60,15 @@ def _empty_cache() -> dict:
 
 @contextmanager
 def _file_lock(timeout_sec: float = LOCK_TIMEOUT_SEC):
+    # Remove stale lock files left by processes that were killed without cleanup.
+    try:
+        if os.path.exists(LOCK_FILE):
+            age = time.time() - os.path.getmtime(LOCK_FILE)
+            if age > _STALE_LOCK_AGE_SEC:
+                os.remove(LOCK_FILE)
+    except OSError:
+        pass
+
     start = time.time()
     fd = None
     while time.time() - start < timeout_sec:
