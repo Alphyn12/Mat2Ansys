@@ -8,6 +8,15 @@ Endpoints:
     GET  /api/health            → Health check
 """
 
+import os
+import sys
+
+# Ensure backend/ directory is on sys.path so relative imports work
+# both locally and on Vercel (where the working directory is the repo root).
+_BACKEND_DIR = os.path.dirname(os.path.abspath(__file__))
+if _BACKEND_DIR not in sys.path:
+    sys.path.insert(0, _BACKEND_DIR)
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
