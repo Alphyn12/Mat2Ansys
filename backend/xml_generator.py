@@ -477,16 +477,21 @@ def _calculate_shear_modulus(E: float, nu: float) -> float:
     return round(E / denominator, 2)
 
 
+def _set_data_value(data_el: ET.Element, value: float):
+    """
+    Update the <Data> tag text with specific formatting rules.
+    """
+    # Format: use int-like representation for large round numbers
+    if value == int(value) and abs(value) >= 1:
+        data_el.text = str(int(value))
+    else:
+        data_el.text = str(value)
+
+
 def _update_param(root: ET.Element, prop_id: str, param_id: str, value: float):
     """
+    DEPRECATED: Use lookup-based updates for performance.
     Find a specific <ParameterValue> inside a <PropertyData> and update its <Data> tag.
-    
-    Searches for:
-        <PropertyData property="prop_id">
-            <ParameterValue parameter="param_id">
-                <Data>OLD_VALUE</Data>  ← This gets replaced
-            </ParameterValue>
-        </PropertyData>
     """
     # Find all PropertyData elements with matching property attribute
     for prop_data in root.iter("PropertyData"):
@@ -501,11 +506,7 @@ def _update_param(root: ET.Element, prop_id: str, param_id: str, value: float):
             # Find and update the <Data> tag
             data_el = param_val.find("Data")
             if data_el is not None:
-                # Format: use int-like representation for large round numbers
-                if value == int(value) and abs(value) >= 1:
-                    data_el.text = str(int(value))
-                else:
-                    data_el.text = str(value)
+                _set_data_value(data_el, value)
                 return True
 
     return False
@@ -557,28 +558,44 @@ def generate_ansys_xml(material_name: str, properties: dict) -> str:
         nu = DEFAULT_POISSONS_RATIO
         properties["poissons_ratio"] = nu
 
-    # 4) Update each mapped property in the XML
+    # 4) Pre-build lookup map for Property/Parameter Data elements
+    # Optimization: O(N) traversal once, then O(1) updates
+    data_lookup = {}
+    for prop_data in root.iter("PropertyData"):
+        prop_id = prop_data.get("property")
+        for param_val in prop_data.findall("ParameterValue"):
+            param_id = param_val.get("parameter")
+            data_el = param_val.find("Data")
+            if data_el is not None:
+                data_lookup[(prop_id, param_id)] = data_el
+
+    # 5) Update each mapped property in the XML
     missing_updates = []
     for prop_key, (prop_id, param_id) in PARAM_MAP.items():
         value = properties.get(prop_key)
         if value is not None:
             # Engineering Rule #2: round to 2 decimals
             rounded = round(float(value), 2)
-            updated = _update_param(root, prop_id, param_id, rounded)
-            if not updated:
+            data_el = data_lookup.get((prop_id, param_id))
+            if data_el is not None:
+                _set_data_value(data_el, rounded)
+            else:
                 missing_updates.append(f"{prop_key} ({prop_id}/{param_id})")
 
-    # 5) Auto-derive Bulk and Shear Modulus
-    bulk_modulus = _calculate_bulk_modulus(E, nu)
-    shear_modulus = _calculate_shear_modulus(E, nu)
+    # 6) Auto-derive Bulk and Shear Modulus
+    derived_values = {
+        "bulk_modulus": _calculate_bulk_modulus(E, nu),
+        "shear_modulus": _calculate_shear_modulus(E, nu),
+    }
 
-    bulk_prop_id, bulk_param_id = DERIVED_MAP["bulk_modulus"]
-    shear_prop_id, shear_param_id = DERIVED_MAP["shear_modulus"]
-
-    if not _update_param(root, bulk_prop_id, bulk_param_id, bulk_modulus):
-        missing_updates.append(f"bulk_modulus ({bulk_prop_id}/{bulk_param_id})")
-    if not _update_param(root, shear_prop_id, shear_param_id, shear_modulus):
-        missing_updates.append(f"shear_modulus ({shear_prop_id}/{shear_param_id})")
+    for derived_key, (prop_id, param_id) in DERIVED_MAP.items():
+        value = derived_values.get(derived_key)
+        if value is not None:
+            data_el = data_lookup.get((prop_id, param_id))
+            if data_el is not None:
+                _set_data_value(data_el, value)
+            else:
+                missing_updates.append(f"{derived_key} ({prop_id}/{param_id})")
 
     if missing_updates:
         joined = ", ".join(missing_updates)
